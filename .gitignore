@@ -1,0 +1,16 @@
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Claude / CCB
+.claude/
+.ccb/
+
+# Database
+*.db
+
+# Environment
+.env
