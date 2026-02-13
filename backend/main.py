@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, Base
 import models  # noqa: F401 - ensure all models are registered with Base.metadata
-from routers import auth, products, styles, scenes
+from routers import auth, products, styles, scenes, scrape, tasks
 from seed import seed_scenes
 
 app = FastAPI(title="RE调香室 AI文案助手", version="1.0.0")
@@ -27,6 +27,8 @@ app.include_router(auth.router)
 app.include_router(products.router)
 app.include_router(styles.router)
 app.include_router(scenes.router)
+app.include_router(scrape.router)
+app.include_router(tasks.router)
 
 
 @app.get("/api/health")
