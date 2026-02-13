@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 1440  # 24 hours
+    ALLOWED_ORIGINS: str = "http://localhost:5173"  # comma-separated for multiple
 
     class Config:
         env_file = ".env"
