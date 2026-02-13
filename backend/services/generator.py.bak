@@ -1,13 +1,13 @@
-import google.generativeai as genai
+import anthropic
 
 from config import settings
 from services.utils import parse_llm_json
 
-genai.configure(api_key=settings.GEMINI_API_KEY)
-model = genai.GenerativeModel(
-    model_name=settings.GEMINI_MODEL,
-    system_instruction="你是一位顶尖的小红书/社交媒体香水文案写手，为「RE调香室」品牌服务。你的文案既能精准传达香水的嗅觉体验，又能打动读者的情感。你熟悉小红书的内容生态，懂得如何创作高互动的种草内容。",
-)
+client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+
+SYSTEM_PROMPT = """你是一位顶尖的小红书/社交媒体香水文案写手，为「RE调香室」品牌服务。
+你的文案既能精准传达香水的嗅觉体验，又能打动读者的情感。
+你熟悉小红书的内容生态，懂得如何创作高互动的种草内容。"""
 
 GENERATE_PROMPT = """请按照以下要求创作{count}个版本的小红书香水文案。
 
@@ -58,7 +58,7 @@ REFINE_PROMPT = """请根据用户反馈，在原文案基础上进行微调。
 只输出JSON，不要其他内容。"""
 
 
-def build_style_section(style_features, sample_texts):
+def build_style_section(style_features: dict, sample_texts: list[str]) -> str:
     parts = []
     if style_features:
         parts.append("### 风格特征")
@@ -80,15 +80,17 @@ def build_style_section(style_features, sample_texts):
             parts.append(f"- 标题风格：{style_features['title_style']}")
         if style_features.get("summary"):
             parts.append(f"\n**风格总结**：{style_features['summary']}")
+
     if sample_texts:
         parts.append("\n### 参考原文（模仿此风格）")
         for i, text in enumerate(sample_texts[:2], 1):
             truncated = text[:800] + "..." if len(text) > 800 else text
             parts.append(f"**样本{i}**：\n{truncated}")
+
     return "\n".join(parts)
 
 
-def build_scene_section(scene_name, scene_desc, keywords, prompt_hint):
+def build_scene_section(scene_name: str, scene_desc: str, keywords: list[str], prompt_hint: str) -> str:
     if not scene_name:
         return ""
     parts = ["## 场景要求"]
@@ -103,32 +105,64 @@ def build_scene_section(scene_name, scene_desc, keywords, prompt_hint):
 
 
 def generate_copies(
-    style_features, sample_texts, product_name, top_notes, middle_notes,
-    base_notes, price, spec, brand_story, scene_name="", scene_desc="",
-    scene_keywords=None, scene_prompt_hint="", count=1,
-):
+    style_features: dict,
+    sample_texts: list[str],
+    product_name: str,
+    top_notes: str,
+    middle_notes: str,
+    base_notes: str,
+    price: float,
+    spec: str,
+    brand_story: str,
+    scene_name: str = "",
+    scene_desc: str = "",
+    scene_keywords: list[str] = None,
+    scene_prompt_hint: str = "",
+    count: int = 1,
+) -> list[dict]:
     style_section = build_style_section(style_features, sample_texts)
     scene_section = build_scene_section(
         scene_name, scene_desc, scene_keywords or [], scene_prompt_hint
     )
+
     prompt = GENERATE_PROMPT.format(
-        count=count, style_section=style_section, product_name=product_name,
-        top_notes=top_notes or "未指定", middle_notes=middle_notes or "未指定",
-        base_notes=base_notes or "未指定", price=f"¥{price}" if price else "未指定",
-        spec=spec or "未指定", brand_story=brand_story or "暂无",
+        count=count,
+        style_section=style_section,
+        product_name=product_name,
+        top_notes=top_notes or "未指定",
+        middle_notes=middle_notes or "未指定",
+        base_notes=base_notes or "未指定",
+        price=f"¥{price}" if price else "未指定",
+        spec=spec or "未指定",
+        brand_story=brand_story or "暂无",
         scene_section=scene_section,
     )
-    response = model.generate_content(prompt)
-    copies = parse_llm_json(response.text)
+
+    response = client.messages.create(
+        model=settings.ANTHROPIC_MODEL,
+        max_tokens=4000,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    copies = parse_llm_json(response.content[0].text)
     if isinstance(copies, dict):
         copies = [copies]
     return copies
 
 
-def refine_copy(original_title, original_content, feedback):
+def refine_copy(original_title: str, original_content: str, feedback: str) -> dict:
     prompt = REFINE_PROMPT.format(
-        original_title=original_title, original_content=original_content,
+        original_title=original_title,
+        original_content=original_content,
         feedback=feedback,
     )
-    response = model.generate_content(prompt)
-    return parse_llm_json(response.text)
+
+    response = client.messages.create(
+        model=settings.ANTHROPIC_MODEL,
+        max_tokens=2000,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    return parse_llm_json(response.content[0].text)
