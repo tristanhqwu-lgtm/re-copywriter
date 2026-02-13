@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
-from database import get_db
+from database import get_db, SessionLocal
 from models import StyleTemplate, StyleSource, User
 from schemas import (
     StyleCreate, StyleUpdate, StyleResponse, StyleListResponse,
-    StyleSourceCreate, StyleSourceResponse,
+    StyleSourceCreate, StyleSourceResponse, TaskResponse,
 )
+from services.task_manager import create_task, update_task
+from services.analyzer import analyze_style
 
 router = APIRouter(prefix="/api/styles", tags=["styles"])
 
@@ -123,3 +125,45 @@ def delete_source(
     db.delete(source)
     db.commit()
     return {"detail": "Source deleted"}
+
+
+async def _do_analyze(task_id: str, style_id: int):
+    db_local = SessionLocal()
+    try:
+        update_task(task_id, status="running", progress=20)
+        style = db_local.query(StyleTemplate).filter(StyleTemplate.id == style_id).first()
+        if not style or not style.sources:
+            update_task(task_id, status="failed", error="No source articles found")
+            return
+
+        articles = [s.source_content for s in style.sources if s.source_content]
+        if not articles:
+            update_task(task_id, status="failed", error="No article content to analyze")
+            return
+
+        update_task(task_id, progress=50)
+        features = analyze_style(articles)
+        style.style_features = features
+        db_local.commit()
+        update_task(task_id, status="completed", progress=100, result=features)
+    except Exception as e:
+        update_task(task_id, status="failed", error=str(e))
+    finally:
+        db_local.close()
+
+
+@router.post("/{style_id}/analyze", response_model=TaskResponse)
+async def trigger_analyze(
+    style_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    style = db.query(StyleTemplate).filter(StyleTemplate.id == style_id).first()
+    if not style:
+        raise HTTPException(status_code=404, detail="Style not found")
+    if not style.sources:
+        raise HTTPException(status_code=400, detail="Add source articles first")
+    task = create_task(db, "analyze")
+    background_tasks.add_task(_do_analyze, task.id, style_id)
+    return task
