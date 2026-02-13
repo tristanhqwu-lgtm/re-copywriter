@@ -7,8 +7,8 @@ from database import SessionLocal
 from models import AsyncTask
 
 
-def create_task(db: Session, task_type: str) -> AsyncTask:
-    task = AsyncTask(type=task_type, status="pending", progress=0)
+def create_task(db: Session, task_type: str, user_id: int) -> AsyncTask:
+    task = AsyncTask(type=task_type, status="pending", progress=0, user_id=user_id)
     db.add(task)
     db.commit()
     db.refresh(task)

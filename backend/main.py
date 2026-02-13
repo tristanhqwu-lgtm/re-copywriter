@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from config import settings
 from database import engine, Base
 import models  # noqa: F401 - ensure all models are registered with Base.metadata
 from routers import auth, products, styles, scenes, scrape, tasks, generate
@@ -19,6 +20,8 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
+    if settings.JWT_SECRET == "change-me-in-production":
+        print("WARNING: JWT_SECRET is using the default value. Set a secure secret in production.")
     Base.metadata.create_all(bind=engine)
     seed_scenes()
 

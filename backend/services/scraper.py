@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass, field
+from urllib.parse import urlparse
 
 from playwright.async_api import async_playwright
 
@@ -21,10 +22,19 @@ class ScrapeResult:
 
 
 def detect_platform(url: str) -> str:
-    url_lower = url.lower()
-    if "xiaohongshu.com" in url_lower or "xhslink.com" in url_lower:
+    parsed = urlparse(url)
+    if parsed.scheme.lower() != "https":
+        return ""
+
+    hostname = (parsed.hostname or "").lower()
+    if hostname in {
+        "xiaohongshu.com",
+        "www.xiaohongshu.com",
+        "xhslink.com",
+        "www.xhslink.com",
+    }:
         return "xiaohongshu"
-    if "douyin.com" in url_lower:
+    if hostname in {"douyin.com", "www.douyin.com", "v.douyin.com"}:
         return "douyin"
     return ""
 

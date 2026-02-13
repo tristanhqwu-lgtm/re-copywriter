@@ -1,8 +1,7 @@
-import json
-
 import anthropic
 
 from config import settings
+from services.utils import parse_llm_json
 
 client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
@@ -48,12 +47,4 @@ def analyze_style(articles: list[str]) -> dict:
         messages=[{"role": "user", "content": prompt}],
     )
 
-    text = response.content[0].text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-    if text.endswith("```"):
-        text = text.rsplit("```", 1)[0]
-    if text.startswith("json"):
-        text = text[4:]
-
-    return json.loads(text.strip())
+    return parse_llm_json(response.content[0].text)

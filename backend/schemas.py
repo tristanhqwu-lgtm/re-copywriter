@@ -68,6 +68,16 @@ class ProductResponse(BaseModel):
         from_attributes = True
 
 
+class ProductImportError(BaseModel):
+    row: int
+    message: str
+
+
+class ProductImportResponse(BaseModel):
+    products: list[ProductResponse]
+    errors: list[ProductImportError]
+
+
 # ── Style ──
 class StyleCreate(BaseModel):
     name: str

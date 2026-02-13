@@ -40,7 +40,7 @@ def get_style(
     return style
 
 
-@router.post("/", response_model=StyleResponse)
+@router.post("/", response_model=StyleResponse, status_code=201)
 def create_style(
     data: StyleCreate,
     db: Session = Depends(get_db),
@@ -157,13 +157,13 @@ async def trigger_analyze(
     style_id: int,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     style = db.query(StyleTemplate).filter(StyleTemplate.id == style_id).first()
     if not style:
         raise HTTPException(status_code=404, detail="Style not found")
     if not style.sources:
         raise HTTPException(status_code=400, detail="Add source articles first")
-    task = create_task(db, "analyze")
+    task = create_task(db, "analyze", current_user.id)
     background_tasks.add_task(_do_analyze, task.id, style_id)
     return task

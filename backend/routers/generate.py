@@ -119,7 +119,7 @@ async def start_generate(
 ):
     if data.count < 1 or data.count > 3:
         raise HTTPException(status_code=400, detail="Count must be 1-3")
-    task = create_task(db, "generate")
+    task = create_task(db, "generate", current_user.id)
     background_tasks.add_task(
         _do_generate,
         task.id, current_user.id, data.product_id, data.style_id,
@@ -192,7 +192,7 @@ async def start_refine(
     ).first()
     if not copy:
         raise HTTPException(status_code=404, detail="Copy not found")
-    task = create_task(db, "generate")
+    task = create_task(db, "generate", current_user.id)
 
     copy_title = copy.title
     copy_content = copy.content

@@ -23,7 +23,8 @@ class User(Base):
     role = Column(String(20), default="member")  # admin / member
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    generated_copies = relationship("GeneratedCopy", back_populates="user")
+    generated_copies = relationship("GeneratedCopy", back_populates="user", passive_deletes=True)
+    async_tasks = relationship("AsyncTask", back_populates="user", passive_deletes=True)
 
 
 class Product(Base):
@@ -42,7 +43,7 @@ class Product(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    generated_copies = relationship("GeneratedCopy", back_populates="product")
+    generated_copies = relationship("GeneratedCopy", back_populates="product", passive_deletes=True)
 
 
 class StyleTemplate(Base):
@@ -56,7 +57,7 @@ class StyleTemplate(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     sources = relationship("StyleSource", back_populates="style", cascade="all, delete-orphan")
-    generated_copies = relationship("GeneratedCopy", back_populates="style")
+    generated_copies = relationship("GeneratedCopy", back_populates="style", passive_deletes=True)
 
 
 class StyleSource(Base):
@@ -84,17 +85,17 @@ class SceneTemplate(Base):
     is_builtin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    generated_copies = relationship("GeneratedCopy", back_populates="scene")
+    generated_copies = relationship("GeneratedCopy", back_populates="scene", passive_deletes=True)
 
 
 class GeneratedCopy(Base):
     __tablename__ = "generated_copies"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    style_id = Column(Integer, ForeignKey("style_templates.id"), nullable=False)
-    scene_id = Column(Integer, ForeignKey("scene_templates.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    style_id = Column(Integer, ForeignKey("style_templates.id", ondelete="CASCADE"), nullable=False)
+    scene_id = Column(Integer, ForeignKey("scene_templates.id", ondelete="SET NULL"), nullable=True)
     title = Column(String(200), nullable=False)
     content = Column(Text, nullable=False)
     hashtags = Column(JSON, default=list)
@@ -114,6 +115,7 @@ class AsyncTask(Base):
     __tablename__ = "async_tasks"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     type = Column(String(20), nullable=False)  # scrape / analyze / generate
     status = Column(String(20), default="pending")  # pending/running/completed/failed
     progress = Column(Integer, default=0)
@@ -121,3 +123,5 @@ class AsyncTask(Base):
     error = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="async_tasks")

@@ -18,10 +18,10 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 def get_task_status(
     task_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     task = get_task(db, task_id)
-    if not task:
+    if not task or task.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Task not found")
     return task
 
@@ -29,13 +29,16 @@ def get_task_status(
 @router.get("/{task_id}/stream")
 async def stream_task(
     task_id: str,
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     async def event_generator():
         while True:
             db = SessionLocal()
             try:
-                task = db.query(AsyncTask).filter(AsyncTask.id == task_id).first()
+                task = db.query(AsyncTask).filter(
+                    AsyncTask.id == task_id,
+                    AsyncTask.user_id == current_user.id,
+                ).first()
                 if not task:
                     yield {"event": "error", "data": json.dumps({"error": "Task not found"})}
                     return

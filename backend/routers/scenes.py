@@ -23,7 +23,7 @@ def list_scenes(
     return query.order_by(SceneTemplate.type, SceneTemplate.name).all()
 
 
-@router.post("/", response_model=SceneResponse)
+@router.post("/", response_model=SceneResponse, status_code=201)
 def create_scene(
     data: SceneCreate,
     db: Session = Depends(get_db),

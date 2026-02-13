@@ -32,7 +32,7 @@ async def submit_scrape(
     data: ScrapeRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     platform = detect_platform(data.url)
     if not platform:
@@ -40,6 +40,6 @@ async def submit_scrape(
             status_code=400,
             detail="Unsupported URL. Only xiaohongshu.com and douyin.com are supported.",
         )
-    task = create_task(db, "scrape")
+    task = create_task(db, "scrape", current_user.id)
     background_tasks.add_task(_do_scrape, task.id, data.url)
     return task

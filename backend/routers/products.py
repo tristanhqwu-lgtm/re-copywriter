@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from models import Product, User
-from schemas import ProductCreate, ProductUpdate, ProductResponse
+from schemas import ProductCreate, ProductUpdate, ProductResponse, ProductImportResponse
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 
@@ -39,7 +39,7 @@ def get_product(
     return product
 
 
-@router.post("/", response_model=ProductResponse)
+@router.post("/", response_model=ProductResponse, status_code=201)
 def create_product(
     data: ProductCreate,
     db: Session = Depends(get_db),
@@ -83,7 +83,7 @@ def delete_product(
     return {"detail": "Product deleted"}
 
 
-@router.post("/import", response_model=list[ProductResponse])
+@router.post("/import", response_model=ProductImportResponse)
 async def import_products(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -93,14 +93,21 @@ async def import_products(
     text = content.decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(text))
     products = []
-    for row in reader:
+    errors = []
+    for row_num, row in enumerate(reader, start=2):
         scenarios = [s.strip() for s in row.get("scenarios", "").split("|") if s.strip()]
+        try:
+            price = float(row.get("price", 0) or 0)
+        except (TypeError, ValueError):
+            errors.append({"row": row_num, "message": f"Invalid price: {row.get('price', '')}"})
+            continue
+
         product = Product(
             name=row.get("name", ""),
             top_notes=row.get("top_notes", ""),
             middle_notes=row.get("middle_notes", ""),
             base_notes=row.get("base_notes", ""),
-            price=float(row.get("price", 0) or 0),
+            price=price,
             spec=row.get("spec", ""),
             scenarios=scenarios,
             brand_story=row.get("brand_story", ""),
@@ -111,4 +118,4 @@ async def import_products(
     db.commit()
     for p in products:
         db.refresh(p)
-    return products
+    return {"products": products, "errors": errors}
