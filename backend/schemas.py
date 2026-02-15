@@ -168,6 +168,7 @@ class GenerateRequest(BaseModel):
     style_id: int
     scene_id: Optional[int] = None
     count: int = 1
+    platform: str = "xiaohongshu"
 
 
 class RefineRequest(BaseModel):

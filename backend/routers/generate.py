@@ -40,7 +40,7 @@ def _copy_to_response(copy: GeneratedCopy) -> dict:
 
 async def _do_generate(
     task_id: str, user_id: int, product_id: int, style_id: int,
-    scene_id: Optional[int], count: int
+    scene_id: Optional[int], count: int, platform: str = "xiaohongshu",
 ):
     db = SessionLocal()
     try:
@@ -75,6 +75,7 @@ async def _do_generate(
             scene_keywords=scene.keywords if scene else [],
             scene_prompt_hint=scene.prompt_hint if scene else "",
             count=count,
+            platform=platform,
         )
 
         update_task(task_id, progress=80)
@@ -123,7 +124,7 @@ async def start_generate(
     background_tasks.add_task(
         _do_generate,
         task.id, current_user.id, data.product_id, data.style_id,
-        data.scene_id, data.count,
+        data.scene_id, data.count, data.platform,
     )
     return task
 

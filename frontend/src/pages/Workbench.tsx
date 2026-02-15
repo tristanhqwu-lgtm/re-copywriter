@@ -1,7 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Copy, Heart, RefreshCw, Check } from "lucide-react";
 import api, { pollTask } from "../api/client";
-import type { Style, Product, Scene, GeneratedCopy, AsyncTask } from "../types";
+import type { Style, Product, Scene, GeneratedCopy, AsyncTask, GeneratePlatform } from "../types";
+
+const PLATFORM_OPTIONS: { key: GeneratePlatform; label: string; icon: string; desc: string }[] = [
+  { key: "xiaohongshu", label: "小红书", icon: "\ud83d\udcd5", desc: "300-500字种草笔记" },
+  { key: "wechat_moments", label: "朋友圈", icon: "\ud83d\udcf1", desc: "50-150字短分享" },
+  { key: "douyin", label: "抖音", icon: "\ud83c\udfb5", desc: "100-200字短文案" },
+  { key: "video_script", label: "视频脚本", icon: "\ud83c\udfac", desc: "500-800字完整脚本" },
+];
 
 export default function Workbench() {
   // Data lists
@@ -13,6 +20,7 @@ export default function Workbench() {
   const [selectedStyle, setSelectedStyle] = useState<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<number | null>(null);
   const [selectedScene, setSelectedScene] = useState<number | null>(null);
+  const [selectedPlatform, setSelectedPlatform] = useState<GeneratePlatform>("xiaohongshu");
   const [count, setCount] = useState(1);
 
   // Generation state
@@ -72,6 +80,7 @@ export default function Workbench() {
         product_id: selectedProduct,
         style_id: selectedStyle,
         count,
+        platform: selectedPlatform,
       };
       if (selectedScene) {
         payload.scene_id = selectedScene;
@@ -99,7 +108,7 @@ export default function Workbench() {
       setGenerating(false);
       setTaskError("请求失败，请重试");
     }
-  }, [selectedStyle, selectedProduct, selectedScene, count]);
+  }, [selectedStyle, selectedProduct, selectedScene, selectedPlatform, count]);
 
   const handleCopy = useCallback(async (copy: GeneratedCopy) => {
     const text = `${copy.title}\n\n${copy.content}\n\n${copy.hashtags.map((t) => `#${t}`).join(" ")}`;
@@ -283,6 +292,34 @@ export default function Workbench() {
           {scenes.length === 0 && (
             <p className="text-sm text-gray-400">暂无场景</p>
           )}
+        </div>
+      </section>
+
+      {/* Step 4: Select Platform */}
+      <section>
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand text-white text-xs mr-2">
+            4
+          </span>
+          选择平台
+        </h2>
+        <div className="grid grid-cols-2 gap-3">
+          {PLATFORM_OPTIONS.map((opt) => (
+            <button
+              key={opt.key}
+              onClick={() => setSelectedPlatform(opt.key)}
+              className={`p-4 rounded-2xl bg-white text-left transition-all ${
+                selectedPlatform === opt.key
+                  ? "border-2 border-brand shadow-md"
+                  : "border-2 border-transparent shadow-sm"
+              }`}
+            >
+              <p className="font-medium text-sm text-gray-800">
+                {opt.icon} {opt.label}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">{opt.desc}</p>
+            </button>
+          ))}
         </div>
       </section>
 

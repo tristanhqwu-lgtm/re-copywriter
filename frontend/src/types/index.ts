@@ -89,6 +89,8 @@ export interface GeneratedCopy {
   scene_name: string;
 }
 
+export type GeneratePlatform = "xiaohongshu" | "wechat_moments" | "douyin" | "video_script";
+
 export interface AsyncTask {
   id: string;
   type: string;
