@@ -3,6 +3,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
+from typing import Optional, Callable, Tuple, List
 from urllib.parse import unquote, urlparse
 
 from playwright.async_api import async_playwright
@@ -17,7 +18,7 @@ RETRY_DELAY = 2  # seconds
 class ScrapeResult:
     title: str = ""
     content: str = ""
-    hashtags: list[str] = field(default_factory=list)
+    hashtags: List[str] = field(default_factory=list)
     platform: str = ""
 
     def to_dict(self):
@@ -47,7 +48,241 @@ def detect_platform(url: str) -> str:
     return ""
 
 
-# ── Public entry point with retry ──
+def detect_url_type(url: str) -> Tuple[str, str]:
+    """Detect platform and whether URL is a profile or article.
+
+    Returns:
+        ("xiaohongshu", "profile") / ("douyin", "article") / ("", "")
+    """
+    platform = detect_platform(url)
+    if not platform:
+        return ("", "")
+
+    parsed = urlparse(url)
+    path = parsed.path.rstrip("/")
+
+    if platform == "xiaohongshu":
+        # Profile: /user/profile/xxx
+        if "/user/profile/" in path:
+            return ("xiaohongshu", "profile")
+        return ("xiaohongshu", "article")
+
+    if platform == "douyin":
+        # Profile: /user/xxx (but NOT /video/xxx)
+        if re.match(r"^/user/", path) and "/video/" not in path:
+            return ("douyin", "profile")
+        return ("douyin", "article")
+
+    return (platform, "article")
+
+
+# ── Public entry points ──
+
+
+async def resolve_short_url(url: str) -> str:
+    """Follow redirects on a short URL (e.g. v.douyin.com) to get the real URL."""
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").lower()
+
+    # Only resolve known short-link domains
+    if hostname not in {"v.douyin.com", "xhslink.com", "www.xhslink.com"}:
+        return url
+
+    logger.info("Resolving short URL: %s", url)
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        try:
+            context = await browser.new_context()
+            page = await context.new_page()
+            await page.goto(url, wait_until="domcontentloaded", timeout=15000)
+            await page.wait_for_timeout(2000)
+            real_url = page.url
+            logger.info("Resolved to: %s", real_url)
+            return real_url
+        finally:
+            await browser.close()
+
+
+async def scrape_profile_links(url: str, max_count: int = 10) -> List[str]:
+    """Scrape a profile page and return article/video URLs."""
+    platform, url_type = detect_url_type(url)
+    if not platform:
+        raise ValueError(f"Unsupported platform URL: {url}")
+    if url_type != "profile":
+        raise ValueError(f"Not a profile URL: {url}")
+
+    logger.info("Scraping profile links from %s (%s)", url, platform)
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        try:
+            context = await browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                ),
+                viewport={"width": 1280, "height": 900},
+            )
+            page = await context.new_page()
+            await page.goto(url, wait_until="networkidle", timeout=30000)
+            await page.wait_for_timeout(3000)
+
+            # Scroll down to load more content
+            for _ in range(3):
+                await page.evaluate("window.scrollBy(0, 800)")
+                await page.wait_for_timeout(1500)
+
+            if platform == "xiaohongshu":
+                links = await _extract_xhs_profile_links(page)
+            elif platform == "douyin":
+                links = await _extract_douyin_profile_links(page)
+            else:
+                links = []
+
+            # Deduplicate while preserving order
+            seen = set()
+            unique = []
+            for link in links:
+                if link not in seen:
+                    seen.add(link)
+                    unique.append(link)
+
+            result = unique[:max_count]
+            logger.info("Found %d article links from profile", len(result))
+            return result
+        finally:
+            await browser.close()
+
+
+async def _extract_xhs_profile_links(page) -> List[str]:
+    """Extract note links from a Xiaohongshu profile page."""
+    return await page.evaluate("""() => {
+        const links = [];
+        // Try multiple selectors for note links on profile
+        const selectors = [
+            'a[href*="/explore/"]',
+            'a[href*="/note/"]',
+            'a[href*="/discovery/item/"]',
+            'section a[href]',
+        ];
+        for (const sel of selectors) {
+            document.querySelectorAll(sel).forEach(el => {
+                const href = el.href || el.getAttribute('href') || '';
+                if (href && (href.includes('/explore/') || href.includes('/note/') || href.includes('/discovery/'))) {
+                    // Normalize to full URL
+                    const full = href.startsWith('http') ? href : 'https://www.xiaohongshu.com' + href;
+                    links.push(full);
+                }
+            });
+            if (links.length > 0) break;
+        }
+        return links;
+    }""")
+
+
+async def _extract_douyin_profile_links(page) -> List[str]:
+    """Extract video links from a Douyin profile page."""
+    return await page.evaluate("""() => {
+        const links = [];
+        // Try multiple selectors for video links on profile
+        const selectors = [
+            'a[href*="/video/"]',
+            'a[href*="/note/"]',
+            'li a[href]',
+            '[data-e2e="user-post-list"] a[href]',
+        ];
+        for (const sel of selectors) {
+            document.querySelectorAll(sel).forEach(el => {
+                const href = el.href || el.getAttribute('href') || '';
+                if (href && (href.includes('/video/') || href.includes('/note/'))) {
+                    const full = href.startsWith('http') ? href : 'https://www.douyin.com' + href;
+                    links.push(full);
+                }
+            });
+            if (links.length > 0) break;
+        }
+        return links;
+    }""")
+
+
+async def scrape_multiple(
+    urls: List[str],
+    on_progress: Optional[Callable] = None,
+) -> List[ScrapeResult]:
+    """Scrape multiple URLs using a shared browser instance.
+
+    Args:
+        urls: List of article/video URLs to scrape.
+        on_progress: Optional callback(completed, total, current_url) for progress.
+
+    Returns:
+        List of successful ScrapeResult objects. Failed URLs are skipped.
+    """
+    if not urls:
+        return []
+
+    results: List[ScrapeResult] = []
+    total = len(urls)
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        try:
+            for i, url in enumerate(urls):
+                platform = detect_platform(url)
+                if not platform:
+                    logger.warning("Skipping unsupported URL: %s", url)
+                    continue
+
+                if on_progress:
+                    on_progress(i, total, url)
+
+                try:
+                    context = await browser.new_context(
+                        user_agent=(
+                            "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) "
+                            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+                            "Version/16.0 Mobile/15E148 Safari/604.1"
+                        ),
+                        viewport={"width": 390, "height": 844},
+                    )
+                    page = await context.new_page()
+                    await page.goto(url, wait_until="networkidle", timeout=30000)
+                    await page.wait_for_timeout(3000)
+
+                    if platform == "xiaohongshu":
+                        result = await _scrape_xiaohongshu(page)
+                    elif platform == "douyin":
+                        result = await _scrape_douyin(page)
+                    else:
+                        continue
+
+                    await context.close()
+
+                    if result.content.strip():
+                        results.append(result)
+                        logger.info(
+                            "[%d/%d] ✅ %s (%d chars)",
+                            i + 1, total, result.title[:30], len(result.content),
+                        )
+                    else:
+                        logger.warning("[%d/%d] ⚠️ Empty content: %s", i + 1, total, url)
+
+                except Exception as exc:
+                    logger.warning("[%d/%d] ❌ Failed %s: %s", i + 1, total, url, exc)
+
+                # Small delay between requests to be polite
+                if i < total - 1:
+                    await asyncio.sleep(1)
+
+        finally:
+            await browser.close()
+
+    if on_progress:
+        on_progress(total, total, "done")
+
+    logger.info("Batch scrape complete: %d/%d succeeded", len(results), total)
+    return results
 
 
 async def scrape_url(url: str) -> ScrapeResult:
@@ -56,7 +291,7 @@ async def scrape_url(url: str) -> ScrapeResult:
     if not platform:
         raise ValueError(f"Unsupported platform URL: {url}")
 
-    last_error: Exception | None = None
+    last_error: Optional[Exception] = None
     for attempt in range(1, MAX_RETRIES + 2):  # 1 initial + MAX_RETRIES retries
         try:
             result = await _do_scrape(url, platform)
@@ -141,7 +376,7 @@ def _extract_hashtags_from_content(result: ScrapeResult) -> None:
 # ── Xiaohongshu ──
 
 
-def _extract_xhs_from_state(raw_json: str) -> ScrapeResult | None:
+def _extract_xhs_from_state(raw_json: str) -> Optional[ScrapeResult]:
     """Try to extract note data from __INITIAL_STATE__ JSON."""
     try:
         state = json.loads(raw_json)
@@ -264,7 +499,7 @@ async def _scrape_xiaohongshu(page) -> ScrapeResult:
 # ── Douyin ──
 
 
-def _extract_douyin_from_render(raw_json: str) -> ScrapeResult | None:
+def _extract_douyin_from_render(raw_json: str) -> Optional[ScrapeResult]:
     """Try to extract video data from RENDER_DATA JSON (URL-encoded)."""
     try:
         decoded = unquote(raw_json)

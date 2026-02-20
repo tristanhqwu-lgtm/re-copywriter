@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -34,12 +35,18 @@ async def submit_scrape(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    platform = detect_platform(data.url)
+    # Extract URL from share text (e.g. Douyin/Xiaohongshu share messages)
+    url = data.url.strip()
+    url_match = re.search(r'https?://[^\s\u4e00-\u9fff]+', url)
+    if url_match:
+        url = url_match.group(0)
+
+    platform = detect_platform(url)
     if not platform:
         raise HTTPException(
             status_code=400,
             detail="Unsupported URL. Only xiaohongshu.com and douyin.com are supported.",
         )
     task = create_task(db, "scrape", current_user.id)
-    background_tasks.add_task(_do_scrape, task.id, data.url)
+    background_tasks.add_task(_do_scrape, task.id, url)
     return task

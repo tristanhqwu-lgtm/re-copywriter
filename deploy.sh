@@ -73,7 +73,9 @@ gcloud run deploy "${SERVICE}" \
   --min-instances 0 \
   --max-instances 3 \
   --timeout 300 \
-  --set-env-vars "GEMINI_API_KEY=${GEMINI_API_KEY},JWT_SECRET=${JWT_SECRET},ALLOWED_ORIGINS=*"
+  --set-env-vars "GEMINI_API_KEY=${GEMINI_API_KEY},JWT_SECRET=${JWT_SECRET},ALLOWED_ORIGINS=*" \
+  --add-volume=name=data-vol,type=cloud-storage,bucket=re-copywriter-data \
+  --add-volume-mount=volume=data-vol,mount-path=/data
 
 # ---------- Step 4: 获取服务 URL ----------
 echo ""
