@@ -1,7 +1,14 @@
+import os
+
 import google.generativeai as genai
 
 from config import settings
 from services.utils import parse_llm_json
+
+# Ensure lowercase proxy env vars are set for gRPC compatibility
+for _upper, _lower in [("HTTP_PROXY", "http_proxy"), ("HTTPS_PROXY", "https_proxy")]:
+    if os.environ.get(_upper) and not os.environ.get(_lower):
+        os.environ[_lower] = os.environ[_upper]
 
 genai.configure(api_key=settings.GEMINI_API_KEY)
 model = genai.GenerativeModel(model_name=settings.GEMINI_MODEL)
@@ -41,5 +48,5 @@ def analyze_style(articles: list[str]) -> dict:
     articles_section = build_articles_section(articles)
     prompt = ANALYZE_PROMPT.format(articles_section=articles_section)
 
-    response = model.generate_content(prompt)
+    response = model.generate_content(prompt, request_options={"timeout": 60})
     return parse_llm_json(response.text)

@@ -2,12 +2,13 @@
 FROM node:22-slim AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci
+RUN npm ci --registry=https://registry.npmmirror.com
 COPY frontend/ ./
 RUN npm run build
 
 # ===== Stage 2: Production Backend =====
 FROM python:3.12-slim
+RUN sed -i "s|deb.debian.org|mirrors.aliyun.com|g" /etc/apt/sources.list.d/debian.sources
 
 # Install Playwright system dependencies (Chromium)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -22,7 +23,7 @@ WORKDIR /app
 
 # Install Python dependencies
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn
 
 # Install Playwright Chromium browser
 RUN playwright install chromium

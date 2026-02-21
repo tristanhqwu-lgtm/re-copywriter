@@ -1,7 +1,14 @@
+import os
+
 import google.generativeai as genai
 
 from config import settings
 from services.utils import parse_llm_json
+
+# Ensure lowercase proxy env vars are set for gRPC compatibility
+for _upper, _lower in [("HTTP_PROXY", "http_proxy"), ("HTTPS_PROXY", "https_proxy")]:
+    if os.environ.get(_upper) and not os.environ.get(_lower):
+        os.environ[_lower] = os.environ[_upper]
 
 genai.configure(api_key=settings.GEMINI_API_KEY)
 model = genai.GenerativeModel(
@@ -158,7 +165,7 @@ def generate_copies(
         title_length=platform_cfg["title_length"],
         platform_hint=platform_cfg["hint"],
     )
-    response = model.generate_content(prompt)
+    response = model.generate_content(prompt, request_options={"timeout": 60})
     copies = parse_llm_json(response.text)
     if isinstance(copies, dict):
         copies = [copies]
@@ -170,5 +177,5 @@ def refine_copy(original_title, original_content, feedback):
         original_title=original_title, original_content=original_content,
         feedback=feedback,
     )
-    response = model.generate_content(prompt)
+    response = model.generate_content(prompt, request_options={"timeout": 60})
     return parse_llm_json(response.text)
