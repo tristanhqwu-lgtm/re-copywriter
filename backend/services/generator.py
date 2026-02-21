@@ -172,6 +172,10 @@ def generate_copies(
         from services.kimi_client import kimi_chat
         text = kimi_chat(user_prompt=prompt, system_prompt=SYSTEM_INSTRUCTION)
         copies = parse_llm_json(text)
+    elif model_choice == "deepseek":
+        from services.deepseek_client import deepseek_chat
+        text = deepseek_chat(user_prompt=prompt, system_prompt=SYSTEM_INSTRUCTION)
+        copies = parse_llm_json(text)
     else:
         response = model.generate_content(prompt, request_options={"timeout": 60})
         copies = parse_llm_json(response.text)
@@ -190,6 +194,11 @@ def refine_copy(original_title, original_content, feedback, model_choice="gemini
     if model_choice == "kimi":
         from services.kimi_client import kimi_chat
         text = kimi_chat(user_prompt=prompt, system_prompt=SYSTEM_INSTRUCTION)
+        return parse_llm_json(text)
+
+    if model_choice == "deepseek":
+        from services.deepseek_client import deepseek_chat
+        text = deepseek_chat(user_prompt=prompt, system_prompt=SYSTEM_INSTRUCTION)
         return parse_llm_json(text)
 
     response = model.generate_content(prompt, request_options={"timeout": 60})

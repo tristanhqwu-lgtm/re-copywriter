@@ -53,5 +53,10 @@ def analyze_style(articles: list[str], model_choice: str = "gemini") -> dict:
         text = kimi_chat(user_prompt=prompt)
         return parse_llm_json(text)
 
+    if model_choice == "deepseek":
+        from services.deepseek_client import deepseek_chat
+        text = deepseek_chat(user_prompt=prompt)
+        return parse_llm_json(text)
+
     response = model.generate_content(prompt, request_options={"timeout": 60})
     return parse_llm_json(response.text)

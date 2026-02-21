@@ -409,7 +409,7 @@ export default function StyleLibrary() {
             {/* action buttons */}
             <div className="flex gap-3">
                 <div className="flex gap-2 mb-3">
-                  {(["gemini", "kimi"] as ModelChoice[]).map((m) => (
+                  {(["gemini", "deepseek", "kimi"] as ModelChoice[]).map((m) => (
                     <button
                       key={m}
                       onClick={() => setDetailAnalyzeModel(m)}
@@ -419,7 +419,7 @@ export default function StyleLibrary() {
                           : "bg-white text-[#5C564C] ring-1 ring-[#EBE7DE]"
                       }`}
                     >
-                      {m === "gemini" ? "Gemini" : "Kimi 2.5"}
+                      {m === "gemini" ? "Gemini" : m === "deepseek" ? "DeepSeek" : "Kimi 2.5"}
                     </button>
                   ))}
                 </div>
@@ -721,7 +721,7 @@ export default function StyleLibrary() {
 
             {/* model selector */}
             <div className="flex gap-2">
-              {(["gemini", "kimi"] as ModelChoice[]).map((m) => (
+              {(["gemini", "deepseek", "kimi"] as ModelChoice[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setAnalyzeModel(m)}
@@ -731,7 +731,7 @@ export default function StyleLibrary() {
                       : "bg-white text-[#5C564C] ring-1 ring-[#EBE7DE]"
                   }`}
                 >
-                  {m === "gemini" ? "Gemini" : "Kimi 2.5"}
+                  {m === "gemini" ? "Gemini" : m === "deepseek" ? "DeepSeek" : "Kimi 2.5"}
                 </button>
               ))}
             </div>

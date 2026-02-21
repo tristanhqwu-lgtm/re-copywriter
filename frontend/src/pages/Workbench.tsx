@@ -12,6 +12,7 @@ const PLATFORM_OPTIONS: { key: GeneratePlatform; label: string; icon: string; de
 
 const MODEL_OPTIONS: { key: ModelChoice; label: string; desc: string }[] = [
   { key: "gemini", label: "Gemini", desc: "Google AI" },
+  { key: "deepseek", label: "DeepSeek", desc: "DeepSeek AI" },
   { key: "kimi", label: "Kimi 2.5", desc: "Moonshot AI" },
 ];
 
