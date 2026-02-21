@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Plus, Trash2, RefreshCw, ExternalLink, X, Loader2 } from "lucide-react";
 import api, { pollTask } from "../api/client";
-import type { Style, AsyncTask } from "../types";
+import type { Style, AsyncTask, ModelChoice } from "../types";
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -53,11 +53,13 @@ export default function StyleLibrary() {
   /* analyze (add flow) */
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeTask, setAnalyzeTask] = useState<AsyncTask | null>(null);
+  const [analyzeModel, setAnalyzeModel] = useState<ModelChoice>("gemini");
   const stopAnalyzeRef = useRef<(() => void) | null>(null);
 
   /* analyze (detail view) */
   const [detailAnalyzing, setDetailAnalyzing] = useState(false);
   const [detailAnalyzeTask, setDetailAnalyzeTask] = useState<AsyncTask | null>(null);
+  const [detailAnalyzeModel, setDetailAnalyzeModel] = useState<ModelChoice>("gemini");
   const stopDetailAnalyzeRef = useRef<(() => void) | null>(null);
 
   /* confirm delete */
@@ -230,7 +232,7 @@ export default function StyleLibrary() {
     setError("");
     try {
       const { data } = await api.post<AsyncTask>(
-        `/styles/${createdStyle.id}/analyze`
+        `/styles/${createdStyle.id}/analyze?model=${analyzeModel}`
       );
       setAnalyzeTask(data);
 
@@ -258,7 +260,7 @@ export default function StyleLibrary() {
     setError("");
     try {
       const { data } = await api.post<AsyncTask>(
-        `/styles/${detailStyle.id}/analyze`
+        `/styles/${detailStyle.id}/analyze?model=${detailAnalyzeModel}`
       );
       setDetailAnalyzeTask(data);
 
@@ -406,6 +408,21 @@ export default function StyleLibrary() {
 
             {/* action buttons */}
             <div className="flex gap-3">
+                <div className="flex gap-2 mb-3">
+                  {(["gemini", "kimi"] as ModelChoice[]).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setDetailAnalyzeModel(m)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-light transition-all ${
+                        detailAnalyzeModel === m
+                          ? "bg-[#3D3832] text-white"
+                          : "bg-white text-[#5C564C] ring-1 ring-[#EBE7DE]"
+                      }`}
+                    >
+                      {m === "gemini" ? "Gemini" : "Kimi 2.5"}
+                    </button>
+                  ))}
+                </div>
               <button
                 onClick={handleReAnalyze}
                 disabled={detailAnalyzing}
@@ -701,6 +718,23 @@ export default function StyleLibrary() {
                 ))}
               </div>
             )}
+
+            {/* model selector */}
+            <div className="flex gap-2">
+              {(["gemini", "kimi"] as ModelChoice[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setAnalyzeModel(m)}
+                  className={`flex-1 py-2 rounded-lg text-xs font-light transition-all ${
+                    analyzeModel === m
+                      ? "bg-[#3D3832] text-white"
+                      : "bg-white text-[#5C564C] ring-1 ring-[#EBE7DE]"
+                  }`}
+                >
+                  {m === "gemini" ? "Gemini" : "Kimi 2.5"}
+                </button>
+              ))}
+            </div>
 
             {/* analyze button */}
             <button

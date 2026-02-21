@@ -91,6 +91,8 @@ export interface GeneratedCopy {
 
 export type GeneratePlatform = "xiaohongshu" | "wechat_moments" | "douyin" | "video_script";
 
+export type ModelChoice = "gemini" | "kimi";
+
 export interface AsyncTask {
   id: string;
   type: string;

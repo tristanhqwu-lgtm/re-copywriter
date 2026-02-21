@@ -41,6 +41,7 @@ def _copy_to_response(copy: GeneratedCopy) -> dict:
 async def _do_generate(
     task_id: str, user_id: int, product_id: int, style_id: int,
     scene_id: Optional[int], count: int, platform: str = "xiaohongshu",
+    model_choice: str = "gemini",
 ):
     db = SessionLocal()
     try:
@@ -76,6 +77,7 @@ async def _do_generate(
             scene_prompt_hint=scene.prompt_hint if scene else "",
             count=count,
             platform=platform,
+            model_choice=model_choice,
         )
 
         update_task(task_id, progress=80)
@@ -124,7 +126,7 @@ async def start_generate(
     background_tasks.add_task(
         _do_generate,
         task.id, current_user.id, data.product_id, data.style_id,
-        data.scene_id, data.count, data.platform,
+        data.scene_id, data.count, data.platform, data.model,
     )
     return task
 
@@ -203,12 +205,16 @@ async def start_refine(
     copy_version = copy.version
     copy_batch_id = copy.batch_id
     user_id = current_user.id
+    model_choice = data.model
 
     async def _do_refine():
         rdb = SessionLocal()
         try:
             update_task(task.id, status="running", progress=30)
-            result = refine_copy(copy_title, copy_content, data.feedback)
+            result = refine_copy(
+                copy_title, copy_content, data.feedback,
+                model_choice=model_choice,
+            )
             update_task(task.id, progress=80)
 
             new_copy = GeneratedCopy(

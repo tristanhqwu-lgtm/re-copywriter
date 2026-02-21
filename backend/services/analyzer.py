@@ -44,9 +44,14 @@ def build_articles_section(articles: list[str]) -> str:
     )
 
 
-def analyze_style(articles: list[str]) -> dict:
+def analyze_style(articles: list[str], model_choice: str = "gemini") -> dict:
     articles_section = build_articles_section(articles)
     prompt = ANALYZE_PROMPT.format(articles_section=articles_section)
+
+    if model_choice == "kimi":
+        from services.kimi_client import kimi_chat
+        text = kimi_chat(user_prompt=prompt)
+        return parse_llm_json(text)
 
     response = model.generate_content(prompt, request_options={"timeout": 60})
     return parse_llm_json(response.text)

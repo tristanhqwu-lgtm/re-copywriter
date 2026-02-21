@@ -16,6 +16,8 @@ model = genai.GenerativeModel(
     system_instruction="你是一位顶尖的社交媒体香水文案写手，为「RE调香室」品牌服务。你的文案既能精准传达香水的嗅觉体验，又能打动读者的情感。你熟悉各社交媒体平台的内容生态，懂得如何创作高互动的种草内容。",
 )
 
+SYSTEM_INSTRUCTION = "你是一位顶尖的社交媒体香水文案写手，为「RE调香室」品牌服务。你的文案既能精准传达香水的嗅觉体验，又能打动读者的情感。你熟悉各社交媒体平台的内容生态，懂得如何创作高互动的种草内容。"
+
 PLATFORM_CONFIGS = {
     "xiaohongshu": {
         "label": "小红书",
@@ -146,7 +148,7 @@ def generate_copies(
     style_features, sample_texts, product_name, top_notes, middle_notes,
     base_notes, price, spec, brand_story, scene_name="", scene_desc="",
     scene_keywords=None, scene_prompt_hint="", count=1,
-    platform="xiaohongshu",
+    platform="xiaohongshu", model_choice="gemini",
 ):
     platform_cfg = PLATFORM_CONFIGS.get(platform, PLATFORM_CONFIGS["xiaohongshu"])
 
@@ -165,17 +167,30 @@ def generate_copies(
         title_length=platform_cfg["title_length"],
         platform_hint=platform_cfg["hint"],
     )
-    response = model.generate_content(prompt, request_options={"timeout": 60})
-    copies = parse_llm_json(response.text)
+
+    if model_choice == "kimi":
+        from services.kimi_client import kimi_chat
+        text = kimi_chat(user_prompt=prompt, system_prompt=SYSTEM_INSTRUCTION)
+        copies = parse_llm_json(text)
+    else:
+        response = model.generate_content(prompt, request_options={"timeout": 60})
+        copies = parse_llm_json(response.text)
+
     if isinstance(copies, dict):
         copies = [copies]
     return copies
 
 
-def refine_copy(original_title, original_content, feedback):
+def refine_copy(original_title, original_content, feedback, model_choice="gemini"):
     prompt = REFINE_PROMPT.format(
         original_title=original_title, original_content=original_content,
         feedback=feedback,
     )
+
+    if model_choice == "kimi":
+        from services.kimi_client import kimi_chat
+        text = kimi_chat(user_prompt=prompt, system_prompt=SYSTEM_INSTRUCTION)
+        return parse_llm_json(text)
+
     response = model.generate_content(prompt, request_options={"timeout": 60})
     return parse_llm_json(response.text)

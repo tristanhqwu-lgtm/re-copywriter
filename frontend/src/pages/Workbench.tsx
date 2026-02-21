@@ -1,13 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Copy, Heart, RefreshCw, Check } from "lucide-react";
 import api, { pollTask } from "../api/client";
-import type { Style, Product, Scene, GeneratedCopy, AsyncTask, GeneratePlatform } from "../types";
+import type { Style, Product, Scene, GeneratedCopy, AsyncTask, GeneratePlatform, ModelChoice } from "../types";
 
 const PLATFORM_OPTIONS: { key: GeneratePlatform; label: string; icon: string; desc: string }[] = [
   { key: "xiaohongshu", label: "小红书", icon: "\ud83d\udcd5", desc: "300-500字种草笔记" },
   { key: "wechat_moments", label: "朋友圈", icon: "\ud83d\udcf1", desc: "50-150字短分享" },
   { key: "douyin", label: "抖音", icon: "\ud83c\udfb5", desc: "100-200字短文案" },
   { key: "video_script", label: "视频脚本", icon: "\ud83c\udfac", desc: "500-800字完整脚本" },
+];
+
+const MODEL_OPTIONS: { key: ModelChoice; label: string; desc: string }[] = [
+  { key: "gemini", label: "Gemini", desc: "Google AI" },
+  { key: "kimi", label: "Kimi 2.5", desc: "Moonshot AI" },
 ];
 
 export default function Workbench() {
@@ -18,6 +23,7 @@ export default function Workbench() {
   const [selectedProduct, setSelectedProduct] = useState<number | null>(null);
   const [selectedScene, setSelectedScene] = useState<number | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState<GeneratePlatform>("xiaohongshu");
+  const [selectedModel, setSelectedModel] = useState<ModelChoice>("gemini");
   const [count, setCount] = useState(1);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -66,6 +72,7 @@ export default function Workbench() {
         style_id: selectedStyle,
         count,
         platform: selectedPlatform,
+        model: selectedModel,
       };
       if (selectedScene) payload.scene_id = selectedScene;
       const { data } = await api.post<AsyncTask>("/generate/", payload);
@@ -87,7 +94,7 @@ export default function Workbench() {
       setGenerating(false);
       setTaskError("请求失败，请重试");
     }
-  }, [selectedStyle, selectedProduct, selectedScene, selectedPlatform, count]);
+  }, [selectedStyle, selectedProduct, selectedScene, selectedPlatform, selectedModel, count]);
 
   const handleCopy = useCallback(async (copy: GeneratedCopy) => {
     const text = `${copy.title}\n\n${copy.content}\n\n${copy.hashtags.map((t) => `#${t}`).join(" ")}`;
@@ -234,6 +241,30 @@ export default function Workbench() {
             >
               <p className="font-light text-sm text-[#2A2621]">{opt.icon} {opt.label}</p>
               <p className="text-[10px] text-[#B5AE9E] mt-1">{opt.desc}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Step 5: Select AI Model */}
+      <section>
+        <h2 className="text-[11px] uppercase tracking-[0.2em] text-[#8C8475] mb-4 flex items-center gap-2">
+          <span className="w-5 h-5 rounded-full bg-[#3D3832] text-white text-[10px] flex items-center justify-center">5</span>
+          AI 模型
+        </h2>
+        <div className="flex gap-3">
+          {MODEL_OPTIONS.map((opt) => (
+            <button
+              key={opt.key}
+              onClick={() => setSelectedModel(opt.key)}
+              className={`flex-1 py-3 rounded-lg text-center transition-all ${
+                selectedModel === opt.key
+                  ? "bg-[#3D3832] text-white"
+                  : "bg-white text-[#5C564C] ring-1 ring-[#EBE7DE]"
+              }`}
+            >
+              <p className="text-sm font-light">{opt.label}</p>
+              <p className={`text-[10px] mt-0.5 ${selectedModel === opt.key ? "text-[#D4CFC3]" : "text-[#B5AE9E]"}`}>{opt.desc}</p>
             </button>
           ))}
         </div>
