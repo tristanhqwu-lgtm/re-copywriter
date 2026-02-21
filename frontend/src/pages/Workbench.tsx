@@ -97,7 +97,7 @@ export default function Workbench() {
   }, [selectedStyle, selectedProduct, selectedScene, selectedPlatform, selectedModel, count]);
 
   const handleCopy = useCallback(async (copy: GeneratedCopy) => {
-    const text = `${copy.title}\n\n${copy.content}\n\n${copy.hashtags.map((t) => `#${t}`).join(" ")}`;
+    const text = `${copy.title}\n\n${copy.content}\n\n${copy.hashtags.map((t) => t.startsWith("#") ? t : `#${t}`).join(" ")}`;
     try {
       await navigator.clipboard.writeText(text);
       setCopiedId(copy.id);
@@ -335,7 +335,7 @@ export default function Workbench() {
               {copy.hashtags && copy.hashtags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {copy.hashtags.map((tag, i) => (
-                    <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-[#F7F5F0] text-[#B8956A]">#{tag}</span>
+                    <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-[#F7F5F0] text-[#B8956A]">{tag.startsWith("#") ? tag : `#${tag}`}</span>
                   ))}
                 </div>
               )}

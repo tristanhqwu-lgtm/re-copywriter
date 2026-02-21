@@ -237,15 +237,15 @@ async def scrape_multiple(
                 if on_progress:
                     on_progress(i, total, url)
 
+                context = await browser.new_context(
+                    user_agent=(
+                        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) "
+                        "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+                        "Version/16.0 Mobile/15E148 Safari/604.1"
+                    ),
+                    viewport={"width": 390, "height": 844},
+                )
                 try:
-                    context = await browser.new_context(
-                        user_agent=(
-                            "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) "
-                            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
-                            "Version/16.0 Mobile/15E148 Safari/604.1"
-                        ),
-                        viewport={"width": 390, "height": 844},
-                    )
                     page = await context.new_page()
                     await page.goto(url, wait_until="networkidle", timeout=30000)
                     await page.wait_for_timeout(3000)
@@ -256,8 +256,6 @@ async def scrape_multiple(
                         result = await _scrape_douyin(page)
                     else:
                         continue
-
-                    await context.close()
 
                     if result.content.strip():
                         results.append(result)
@@ -270,6 +268,8 @@ async def scrape_multiple(
 
                 except Exception as exc:
                     logger.warning("[%d/%d] ❌ Failed %s: %s", i + 1, total, url, exc)
+                finally:
+                    await context.close()
 
                 # Small delay between requests to be polite
                 if i < total - 1:
