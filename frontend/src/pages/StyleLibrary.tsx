@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Plus, Trash2, RefreshCw, ExternalLink, X, Loader2 } from "lucide-react";
 import api, { pollTask } from "../api/client";
-import type { Style, AsyncTask } from "../types";
+import type { Style, AsyncTask, ModelChoice } from "../types";
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -53,11 +53,13 @@ export default function StyleLibrary() {
   /* analyze (add flow) */
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeTask, setAnalyzeTask] = useState<AsyncTask | null>(null);
+  const [analyzeModel, setAnalyzeModel] = useState<ModelChoice>("gemini");
   const stopAnalyzeRef = useRef<(() => void) | null>(null);
 
   /* analyze (detail view) */
   const [detailAnalyzing, setDetailAnalyzing] = useState(false);
   const [detailAnalyzeTask, setDetailAnalyzeTask] = useState<AsyncTask | null>(null);
+  const [detailAnalyzeModel, setDetailAnalyzeModel] = useState<ModelChoice>("gemini");
   const stopDetailAnalyzeRef = useRef<(() => void) | null>(null);
 
   /* confirm delete */
@@ -230,7 +232,7 @@ export default function StyleLibrary() {
     setError("");
     try {
       const { data } = await api.post<AsyncTask>(
-        `/styles/${createdStyle.id}/analyze`
+        `/styles/${createdStyle.id}/analyze?model=${analyzeModel}`
       );
       setAnalyzeTask(data);
 
@@ -258,7 +260,7 @@ export default function StyleLibrary() {
     setError("");
     try {
       const { data } = await api.post<AsyncTask>(
-        `/styles/${detailStyle.id}/analyze`
+        `/styles/${detailStyle.id}/analyze?model=${detailAnalyzeModel}`
       );
       setDetailAnalyzeTask(data);
 
@@ -329,7 +331,7 @@ export default function StyleLibrary() {
 
   const renderFeatures = (features: Style["style_features"]) => {
     if (!features || Object.keys(features).length === 0) {
-      return <p className="text-gray-400 text-sm">暂无风格特征，请先分析</p>;
+      return <p className="text-[#B5AE9E] text-sm font-light tracking-[0.05em]">暂无风格特征，请先分析</p>;
     }
     return (
       <div className="space-y-3">
@@ -339,10 +341,10 @@ export default function StyleLibrary() {
           const display = Array.isArray(value) ? value.join("、") : String(value);
           return (
             <div key={key}>
-              <span className="text-xs font-medium text-brand bg-brand-50 px-2 py-0.5 rounded-full">
+              <span className="text-[11px] text-[#B8956A] bg-[#F5F0E8] px-2 py-0.5 rounded-full font-light tracking-[0.05em]">
                 {label}
               </span>
-              <p className="text-sm text-gray-700 mt-1 leading-relaxed">{display}</p>
+              <p className="text-sm text-[#3D3832] mt-1 leading-relaxed font-light">{display}</p>
             </div>
           );
         })}
@@ -356,7 +358,7 @@ export default function StyleLibrary() {
   const renderError = () => {
     if (!error) return null;
     return (
-      <div className="text-red-500 text-sm bg-red-50 p-3 rounded-xl flex items-center justify-between">
+      <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg ring-1 ring-red-100 flex items-center justify-between font-light">
         <span>{error}</span>
         <button onClick={() => setError("")} className="text-red-400 ml-2 shrink-0">
           <X size={14} />
@@ -372,18 +374,20 @@ export default function StyleLibrary() {
       <div className="p-4 space-y-4">
         {/* header */}
         <div className="flex items-center justify-between">
-          <button onClick={closeDetail} className="text-gray-500 p-1">
+          <button onClick={closeDetail} className="text-[#B5AE9E] p-1 hover:text-[#3D3832]">
             <X size={22} />
           </button>
-          <h2 className="text-lg font-bold text-brand truncate flex-1 text-center mx-2">
+          <h2 className="text-lg font-light tracking-[0.15em] text-[#2A2621] truncate flex-1 text-center mx-2">
             {detailStyle.name}
           </h2>
           <div className="w-[30px]" />
         </div>
 
+        <div className="w-8 h-px bg-[#D4CFC3] mx-auto" />
+
         {detailLoading && (
           <div className="flex justify-center py-12">
-            <Loader2 size={28} className="animate-spin text-brand" />
+            <Loader2 size={28} className="animate-spin text-[#B5AE9E]" />
           </div>
         )}
 
@@ -391,23 +395,38 @@ export default function StyleLibrary() {
           <>
             {/* description */}
             {detailStyle.description && (
-              <p className="text-sm text-gray-500">{detailStyle.description}</p>
+              <p className="text-sm text-[#8C8475] font-light tracking-[0.05em]">{detailStyle.description}</p>
             )}
 
             {renderError()}
 
             {/* features card */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-800 mb-3">风格特征</h3>
+            <div className="bg-white rounded-lg p-4 ring-1 ring-[#EBE7DE]">
+              <h3 className="text-[11px] uppercase tracking-[0.2em] text-[#8C8475] mb-3">风格特征</h3>
               {renderFeatures(detailStyle.style_features)}
             </div>
 
             {/* action buttons */}
             <div className="flex gap-3">
+                <div className="flex gap-2 mb-3">
+                  {(["gemini", "deepseek", "kimi"] as ModelChoice[]).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setDetailAnalyzeModel(m)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-light transition-all ${
+                        detailAnalyzeModel === m
+                          ? "bg-[#3D3832] text-white"
+                          : "bg-white text-[#5C564C] ring-1 ring-[#EBE7DE]"
+                      }`}
+                    >
+                      {m === "gemini" ? "Gemini" : m === "deepseek" ? "DeepSeek" : "Kimi 2.5"}
+                    </button>
+                  ))}
+                </div>
               <button
                 onClick={handleReAnalyze}
                 disabled={detailAnalyzing}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-brand text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#3D3832] text-white rounded-lg text-sm font-light tracking-[0.1em] disabled:opacity-50 transition-colors"
               >
                 {detailAnalyzing ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -418,7 +437,7 @@ export default function StyleLibrary() {
               </button>
               <button
                 onClick={() => setConfirmDeleteStyleId(detailStyle.id)}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-500 rounded-xl text-sm font-medium transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-500 rounded-lg text-sm font-light transition-colors"
               >
                 <Trash2 size={16} />
                 删除
@@ -427,12 +446,12 @@ export default function StyleLibrary() {
 
             {/* analyze progress */}
             {detailAnalyzeTask && detailAnalyzeTask.status !== "completed" && (
-              <div className="bg-brand-50 rounded-xl p-3 text-sm text-brand flex items-center gap-2">
+              <div className="bg-[#F7F5F0] rounded-lg p-3 text-sm text-[#3D3832] ring-1 ring-[#EBE7DE] flex items-center gap-2 font-light">
                 {detailAnalyzeTask.status === "failed" ? (
                   <span>分析失败: {detailAnalyzeTask.error || "未知错误"}</span>
                 ) : (
                   <>
-                    <Loader2 size={14} className="animate-spin" />
+                    <Loader2 size={14} className="animate-spin text-[#B8956A]" />
                     <span>分析进度: {Math.round((detailAnalyzeTask.progress || 0) * 100)}%</span>
                   </>
                 )}
@@ -441,19 +460,19 @@ export default function StyleLibrary() {
 
             {/* confirm delete style */}
             {confirmDeleteStyleId !== null && (
-              <div className="bg-red-50 rounded-xl p-4 space-y-3">
-                <p className="text-sm text-red-600">确定要删除此风格吗？此操作不可撤销。</p>
+              <div className="bg-red-50 rounded-lg p-4 space-y-3 ring-1 ring-red-100">
+                <p className="text-sm text-red-600 font-light">确定要删除此风格吗？此操作不可撤销。</p>
                 <div className="flex gap-3">
                   <button
                     onClick={() => handleDeleteStyle(confirmDeleteStyleId)}
                     disabled={deleting}
-                    className="flex-1 py-2 bg-red-500 text-white rounded-xl text-sm font-medium disabled:opacity-50"
+                    className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-light disabled:opacity-50"
                   >
                     {deleting ? "删除中..." : "确定删除"}
                   </button>
                   <button
                     onClick={() => setConfirmDeleteStyleId(null)}
-                    className="flex-1 py-2 bg-white text-gray-600 rounded-xl text-sm font-medium border border-gray-200"
+                    className="flex-1 py-2 bg-white text-[#5C564C] rounded-lg text-sm font-light ring-1 ring-[#EBE7DE]"
                   >
                     取消
                   </button>
@@ -462,21 +481,21 @@ export default function StyleLibrary() {
             )}
 
             {/* source articles */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-800 mb-3">
+            <div className="bg-white rounded-lg p-4 ring-1 ring-[#EBE7DE]">
+              <h3 className="text-[11px] uppercase tracking-[0.2em] text-[#8C8475] mb-3">
                 参考文章 ({detailStyle.sources?.length || 0})
               </h3>
               {(!detailStyle.sources || detailStyle.sources.length === 0) && (
-                <p className="text-gray-400 text-sm">暂无参考文章</p>
+                <p className="text-[#B5AE9E] text-sm font-light">暂无参考文章</p>
               )}
               <div className="space-y-3">
                 {detailStyle.sources?.map((src) => (
                   <div
                     key={src.id}
-                    className="border border-gray-100 rounded-xl p-3 space-y-2"
+                    className="ring-1 ring-[#EBE7DE] rounded-lg p-3 space-y-2"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-brand bg-brand-50 px-2 py-0.5 rounded-full">
+                      <span className="text-[11px] text-[#B8956A] bg-[#F5F0E8] px-2 py-0.5 rounded-full font-light tracking-[0.05em]">
                         {platformLabel(src.platform)}
                       </span>
                       <div className="flex items-center gap-2">
@@ -485,7 +504,7 @@ export default function StyleLibrary() {
                             href={src.source_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-gray-400 hover:text-brand transition-colors"
+                            className="text-[#B5AE9E] hover:text-[#3D3832] transition-colors"
                           >
                             <ExternalLink size={14} />
                           </a>
@@ -495,13 +514,13 @@ export default function StyleLibrary() {
                             <button
                               onClick={() => handleDeleteSource(src.id)}
                               disabled={deleting}
-                              className="text-xs text-red-500 font-medium disabled:opacity-50"
+                              className="text-xs text-red-500 font-light disabled:opacity-50"
                             >
                               {deleting ? "..." : "确认"}
                             </button>
                             <button
                               onClick={() => setConfirmDeleteSourceId(null)}
-                              className="text-xs text-gray-400"
+                              className="text-xs text-[#B5AE9E] font-light"
                             >
                               取消
                             </button>
@@ -509,14 +528,14 @@ export default function StyleLibrary() {
                         ) : (
                           <button
                             onClick={() => setConfirmDeleteSourceId(src.id)}
-                            className="text-gray-400 hover:text-red-500 transition-colors"
+                            className="text-[#B5AE9E] hover:text-red-500 transition-colors"
                           >
                             <Trash2 size={14} />
                           </button>
                         )}
                       </div>
                     </div>
-                    <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">
+                    <p className="text-xs text-[#5C564C] leading-relaxed line-clamp-3 font-light">
                       {src.source_content}
                     </p>
                   </div>
@@ -536,39 +555,41 @@ export default function StyleLibrary() {
       <div className="p-4 space-y-4">
         {/* header */}
         <div className="flex items-center justify-between">
-          <button onClick={resetAddFlow} className="text-gray-500 p-1">
+          <button onClick={resetAddFlow} className="text-[#B5AE9E] p-1 hover:text-[#3D3832]">
             <X size={22} />
           </button>
-          <h2 className="text-lg font-bold text-brand">添加风格</h2>
+          <h2 className="text-lg font-light tracking-[0.15em] text-[#2A2621]">添加风格</h2>
           <div className="w-[30px]" />
         </div>
+
+        <div className="w-8 h-px bg-[#D4CFC3] mx-auto" />
 
         {renderError()}
 
         {/* step 1: name + description */}
         {addStep === 1 && (
-          <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
-            <h3 className="text-sm font-semibold text-gray-800">基本信息</h3>
+          <div className="bg-white rounded-lg p-5 ring-1 ring-[#EBE7DE] space-y-4">
+            <h3 className="text-[11px] uppercase tracking-[0.2em] text-[#8C8475]">基本信息</h3>
             <input
               type="text"
               placeholder="风格名称"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-brand text-sm"
+              className="w-full px-4 py-3 rounded-lg bg-[#F7F5F0] border border-[#EBE7DE] focus:outline-none focus:border-[#B5AE9E] text-sm text-[#2A2621] placeholder:text-[#B5AE9E] font-light"
             />
             <textarea
               placeholder="风格描述（可选）"
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
               rows={3}
-              className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-brand text-sm resize-none"
+              className="w-full px-4 py-3 rounded-lg bg-[#F7F5F0] border border-[#EBE7DE] focus:outline-none focus:border-[#B5AE9E] text-sm text-[#2A2621] placeholder:text-[#B5AE9E] resize-none font-light"
             />
             <button
               onClick={handleCreateStyle}
               disabled={!newName.trim()}
-              className="w-full py-3 bg-brand text-white rounded-xl font-medium text-sm disabled:opacity-40 transition-colors"
+              className="w-full py-3 bg-[#3D3832] text-white rounded-lg text-sm font-light tracking-[0.1em] disabled:opacity-40 transition-colors"
             >
-              下一步
+              下 一 步
             </button>
           </div>
         )}
@@ -577,17 +598,17 @@ export default function StyleLibrary() {
         {addStep === 2 && createdStyle && (
           <div className="space-y-4">
             {/* platform selection */}
-            <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
-              <h3 className="text-sm font-semibold text-gray-800">选择平台</h3>
+            <div className="bg-white rounded-lg p-5 ring-1 ring-[#EBE7DE] space-y-4">
+              <h3 className="text-[11px] uppercase tracking-[0.2em] text-[#8C8475]">选择平台</h3>
               <div className="flex gap-2">
                 {PLATFORMS.map((p) => (
                   <button
                     key={p.value}
                     onClick={() => setPlatform(p.value)}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-light tracking-[0.08em] transition-colors ${
                       platform === p.value
-                        ? "bg-brand text-white"
-                        : "bg-gray-100 text-gray-600"
+                        ? "bg-[#3D3832] text-white"
+                        : "bg-[#F7F5F0] text-[#8C8475] ring-1 ring-[#EBE7DE]"
                     }`}
                   >
                     {p.label}
@@ -596,24 +617,24 @@ export default function StyleLibrary() {
               </div>
 
               {/* input method toggle */}
-              <h3 className="text-sm font-semibold text-gray-800">输入方式</h3>
+              <h3 className="text-[11px] uppercase tracking-[0.2em] text-[#8C8475]">输入方式</h3>
               <div className="flex gap-2">
                 <button
                   onClick={() => setInputMethod("paste")}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-light tracking-[0.08em] transition-colors ${
                     inputMethod === "paste"
-                      ? "bg-brand text-white"
-                      : "bg-gray-100 text-gray-600"
+                      ? "bg-[#3D3832] text-white"
+                      : "bg-[#F7F5F0] text-[#8C8475] ring-1 ring-[#EBE7DE]"
                   }`}
                 >
                   粘贴内容
                 </button>
                 <button
                   onClick={() => setInputMethod("url")}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-light tracking-[0.08em] transition-colors ${
                     inputMethod === "url"
-                      ? "bg-brand text-white"
-                      : "bg-gray-100 text-gray-600"
+                      ? "bg-[#3D3832] text-white"
+                      : "bg-[#F7F5F0] text-[#8C8475] ring-1 ring-[#EBE7DE]"
                   }`}
                 >
                   输入链接
@@ -627,29 +648,33 @@ export default function StyleLibrary() {
                   value={pasteContent}
                   onChange={(e) => setPasteContent(e.target.value)}
                   rows={5}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-brand text-sm resize-none"
+                  className="w-full px-4 py-3 rounded-lg bg-[#F7F5F0] border border-[#EBE7DE] focus:outline-none focus:border-[#B5AE9E] text-sm text-[#2A2621] placeholder:text-[#B5AE9E] resize-none font-light"
                 />
               )}
 
               {/* url input */}
               {inputMethod === "url" && (
                 <input
-                  type="url"
-                  placeholder="输入文章链接..."
+                  type="text"
+                  placeholder="直接粘贴分享文本，自动提取链接..."
                   value={scrapeUrl}
-                  onChange={(e) => setScrapeUrl(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-brand text-sm"
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    const match = raw.match(/https?:\/\/[^\s\u4e00-\u9fff]+/);
+                    setScrapeUrl(match ? match[0] : raw);
+                  }}
+                  className="w-full px-4 py-3 rounded-lg bg-[#F7F5F0] border border-[#EBE7DE] focus:outline-none focus:border-[#B5AE9E] text-sm text-[#2A2621] placeholder:text-[#B5AE9E] font-light"
                 />
               )}
 
               {/* scrape task progress */}
               {taskStatus && taskStatus.status !== "completed" && (
-                <div className="flex items-center gap-2 text-sm text-brand">
+                <div className="flex items-center gap-2 text-sm text-[#3D3832] font-light">
                   {taskStatus.status === "failed" ? (
                     <span>抓取失败: {taskStatus.error || "未知错误"}</span>
                   ) : (
                     <>
-                      <Loader2 size={16} className="animate-spin" />
+                      <Loader2 size={16} className="animate-spin text-[#B8956A]" />
                       <span>抓取中... {Math.round((taskStatus.progress || 0) * 100)}%</span>
                     </>
                   )}
@@ -667,7 +692,7 @@ export default function StyleLibrary() {
                     taskStatus.status !== "completed" &&
                     taskStatus.status !== "failed")
                 }
-                className="w-full py-3 bg-brand-50 text-brand rounded-xl font-medium text-sm disabled:opacity-40 border border-brand/20 flex items-center justify-center gap-2 transition-colors"
+                className="w-full py-3 bg-[#F7F5F0] text-[#3D3832] rounded-lg text-sm font-light tracking-[0.08em] disabled:opacity-40 ring-1 ring-[#EBE7DE] flex items-center justify-center gap-2 transition-colors"
               >
                 {addingSource && <Loader2 size={14} className="animate-spin" />}
                 添加文章
@@ -676,45 +701,62 @@ export default function StyleLibrary() {
 
             {/* added sources list */}
             {addedSources.length > 0 && (
-              <div className="bg-white rounded-2xl p-5 shadow-sm space-y-3">
-                <h3 className="text-sm font-semibold text-gray-800">
+              <div className="bg-white rounded-lg p-5 ring-1 ring-[#EBE7DE] space-y-3">
+                <h3 className="text-[11px] uppercase tracking-[0.2em] text-[#8C8475]">
                   已添加文章 ({addedSources.length})
                 </h3>
                 {addedSources.map((s) => (
                   <div
                     key={s.id}
-                    className="flex items-center gap-2 text-sm border border-gray-100 rounded-xl px-3 py-2.5"
+                    className="flex items-center gap-2 text-sm ring-1 ring-[#EBE7DE] rounded-lg px-3 py-2.5"
                   >
-                    <span className="text-xs font-medium text-brand bg-brand-50 px-2 py-0.5 rounded-full shrink-0">
+                    <span className="text-[11px] text-[#B8956A] bg-[#F5F0E8] px-2 py-0.5 rounded-full shrink-0 font-light tracking-[0.05em]">
                       {platformLabel(s.platform)}
                     </span>
-                    <span className="text-gray-600 truncate">{s.preview}</span>
+                    <span className="text-[#5C564C] truncate font-light">{s.preview}</span>
                   </div>
                 ))}
               </div>
             )}
 
+            {/* model selector */}
+            <div className="flex gap-2">
+              {(["gemini", "deepseek", "kimi"] as ModelChoice[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setAnalyzeModel(m)}
+                  className={`flex-1 py-2 rounded-lg text-xs font-light transition-all ${
+                    analyzeModel === m
+                      ? "bg-[#3D3832] text-white"
+                      : "bg-white text-[#5C564C] ring-1 ring-[#EBE7DE]"
+                  }`}
+                >
+                  {m === "gemini" ? "Gemini" : m === "deepseek" ? "DeepSeek" : "Kimi 2.5"}
+                </button>
+              ))}
+            </div>
+
             {/* analyze button */}
             <button
               onClick={handleAnalyze}
               disabled={addedSources.length === 0 || analyzing}
-              className="w-full py-3 bg-brand text-white rounded-xl font-medium text-sm disabled:opacity-40 flex items-center justify-center gap-2 transition-colors"
+              className="w-full py-3 bg-[#3D3832] text-white rounded-lg text-sm font-light tracking-[0.1em] disabled:opacity-40 flex items-center justify-center gap-2 transition-colors"
             >
               {analyzing ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <RefreshCw size={16} />
               )}
-              {analyzing ? "分析中..." : "分析风格"}
+              {analyzing ? "分析中..." : "分 析 风 格"}
             </button>
 
             {/* analyze task progress */}
             {analyzeTask && (
               <div
-                className={`rounded-xl p-3 text-sm flex items-center gap-2 ${
+                className={`rounded-lg p-3 text-sm flex items-center gap-2 font-light ${
                   analyzeTask.status === "failed"
-                    ? "bg-red-50 text-red-500"
-                    : "bg-brand-50 text-brand"
+                    ? "bg-red-50 text-red-500 ring-1 ring-red-100"
+                    : "bg-[#F7F5F0] text-[#3D3832] ring-1 ring-[#EBE7DE]"
                 }`}
               >
                 {analyzeTask.status === "completed" ? (
@@ -723,7 +765,7 @@ export default function StyleLibrary() {
                   <span>分析失败: {analyzeTask.error || "未知错误"}</span>
                 ) : (
                   <>
-                    <Loader2 size={14} className="animate-spin" />
+                    <Loader2 size={14} className="animate-spin text-[#B8956A]" />
                     <span>分析进度: {Math.round((analyzeTask.progress || 0) * 100)}%</span>
                   </>
                 )}
@@ -734,9 +776,9 @@ export default function StyleLibrary() {
             {analyzeTask?.status === "completed" && (
               <button
                 onClick={resetAddFlow}
-                className="w-full py-3 bg-white text-brand rounded-xl font-medium text-sm border border-brand/20 transition-colors"
+                className="w-full py-3 bg-white text-[#3D3832] rounded-lg text-sm font-light tracking-[0.1em] ring-1 ring-[#EBE7DE] transition-colors"
               >
-                完成
+                完 成
               </button>
             )}
           </div>
@@ -751,15 +793,18 @@ export default function StyleLibrary() {
     <div className="p-4 space-y-4">
       {/* header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-brand">风格库</h1>
+        <div>
+          <h1 className="text-xl font-light tracking-[0.15em] text-[#2A2621]">风 格 库</h1>
+          <div className="w-8 h-px bg-[#D4CFC3] mt-2" />
+        </div>
         <button
           onClick={() => {
             setError("");
             setShowAdd(true);
           }}
-          className="flex items-center gap-1 px-3 py-2 bg-brand text-white rounded-xl text-sm font-medium transition-colors active:scale-95"
+          className="flex items-center gap-1 px-3 py-2 bg-[#3D3832] text-white rounded-lg text-sm font-light tracking-[0.05em] transition-colors active:scale-95"
         >
-          <Plus size={16} />
+          <Plus size={14} />
           添加风格
         </button>
       </div>
@@ -769,18 +814,18 @@ export default function StyleLibrary() {
       {/* loading */}
       {loading && (
         <div className="flex justify-center py-12">
-          <Loader2 size={28} className="animate-spin text-brand" />
+          <Loader2 size={28} className="animate-spin text-[#B5AE9E]" />
         </div>
       )}
 
       {/* empty state */}
       {!loading && styles.length === 0 && !error && (
         <div className="text-center py-16">
-          <div className="w-16 h-16 bg-brand-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Plus size={24} className="text-brand" />
+          <div className="w-16 h-16 bg-[#F7F5F0] rounded-full flex items-center justify-center mx-auto mb-4 ring-1 ring-[#EBE7DE]">
+            <Plus size={24} className="text-[#B5AE9E]" />
           </div>
-          <p className="text-gray-400 text-sm">还没有风格</p>
-          <p className="text-gray-300 text-xs mt-1">点击右上角添加你的第一个风格</p>
+          <p className="text-[#8C8475] text-sm font-light tracking-[0.05em]">还没有风格</p>
+          <p className="text-[#B5AE9E] text-xs mt-1 font-light tracking-[0.05em]">点击右上角添加你的第一个风格</p>
         </div>
       )}
 
@@ -790,21 +835,21 @@ export default function StyleLibrary() {
           <button
             key={style.id}
             onClick={() => openDetail(style.id)}
-            className="w-full text-left bg-white rounded-2xl p-4 shadow-sm space-y-2 active:scale-[0.98] transition-transform"
+            className="w-full text-left bg-white rounded-lg p-4 ring-1 ring-[#EBE7DE] space-y-2 active:scale-[0.98] transition-transform"
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-gray-800 truncate">
+              <h3 className="text-base font-light text-[#2A2621] truncate tracking-[0.08em]">
                 {style.name}
               </h3>
-              <span className="text-xs text-brand bg-brand-50 px-2 py-0.5 rounded-full shrink-0 ml-2">
+              <span className="text-[11px] text-[#B8956A] bg-[#F5F0E8] px-2 py-0.5 rounded-full shrink-0 ml-2 font-light tracking-[0.05em]">
                 {style.source_count ?? 0} 篇
               </span>
             </div>
             {style.description && (
-              <p className="text-sm text-gray-500 line-clamp-2">{style.description}</p>
+              <p className="text-sm text-[#8C8475] line-clamp-2 font-light">{style.description}</p>
             )}
             {style.style_features?.tone && (
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-[#B5AE9E] font-light tracking-[0.05em]">
                 语调: {style.style_features.tone}
               </p>
             )}

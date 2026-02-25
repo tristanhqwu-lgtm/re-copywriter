@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
@@ -127,7 +127,7 @@ def delete_source(
     return {"detail": "Source deleted"}
 
 
-async def _do_analyze(task_id: str, style_id: int):
+async def _do_analyze(task_id: str, style_id: int, model_choice: str = "gemini"):
     db_local = SessionLocal()
     try:
         update_task(task_id, status="running", progress=20)
@@ -142,7 +142,7 @@ async def _do_analyze(task_id: str, style_id: int):
             return
 
         update_task(task_id, progress=50)
-        features = analyze_style(articles)
+        features = analyze_style(articles, model_choice=model_choice)
         style.style_features = features
         db_local.commit()
         update_task(task_id, status="completed", progress=100, result=features)
@@ -156,6 +156,7 @@ async def _do_analyze(task_id: str, style_id: int):
 async def trigger_analyze(
     style_id: int,
     background_tasks: BackgroundTasks,
+    model: str = Query("gemini"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -165,5 +166,5 @@ async def trigger_analyze(
     if not style.sources:
         raise HTTPException(status_code=400, detail="Add source articles first")
     task = create_task(db, "analyze", current_user.id)
-    background_tasks.add_task(_do_analyze, task.id, style_id)
+    background_tasks.add_task(_do_analyze, task.id, style_id, model)
     return task

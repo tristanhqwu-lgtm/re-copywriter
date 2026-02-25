@@ -89,6 +89,10 @@ export interface GeneratedCopy {
   scene_name: string;
 }
 
+export type GeneratePlatform = "xiaohongshu" | "wechat_moments" | "douyin" | "video_script";
+
+export type ModelChoice = "gemini" | "deepseek" | "kimi";
+
 export interface AsyncTask {
   id: string;
   type: string;

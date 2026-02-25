@@ -168,11 +168,14 @@ class GenerateRequest(BaseModel):
     style_id: int
     scene_id: Optional[int] = None
     count: int = 1
+    platform: str = "xiaohongshu"
+    model: str = "gemini"
 
 
 class RefineRequest(BaseModel):
     copy_id: int
     feedback: str
+    model: str = "gemini"
 
 
 class CopyResponse(BaseModel):

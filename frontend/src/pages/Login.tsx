@@ -32,30 +32,33 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-50 flex items-center justify-center px-6">
+    <div className="min-h-screen bg-[#F9F8F5] flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-brand">RE调香室</h1>
-          <p className="text-gray-500 mt-2">AI文案助手</p>
+        <div className="text-center mb-10">
+          <h1 className="text-2xl font-light tracking-[0.15em] text-brand">RE 調香室</h1>
+          <div className="w-8 h-px bg-brand-300 mx-auto mt-3" />
+          <p className="text-brand-400 mt-3 text-xs tracking-widest uppercase">AI Copywriter</p>
         </div>
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-6 shadow-sm space-y-4">
-          <h2 className="text-lg font-semibold text-center">{isRegister ? "注册" : "登录"}</h2>
-          {error && <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded-lg">{error}</div>}
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 border border-brand-100 space-y-4">
+          <h2 className="text-sm font-medium text-center text-brand-500 tracking-wider">
+            {isRegister ? "注 册" : "登 录"}
+          </h2>
+          {error && <div className="text-red-500 text-xs text-center bg-red-50 p-2 rounded-lg">{error}</div>}
           <input type="text" placeholder="用户名" value={username} onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-brand" required />
+            className="w-full px-4 py-3 rounded-lg bg-brand-50 border border-brand-100 focus:outline-none focus:border-brand-300 text-sm" required />
           {isRegister && (
             <input type="text" placeholder="显示名称" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-brand" required />
+              className="w-full px-4 py-3 rounded-lg bg-brand-50 border border-brand-100 focus:outline-none focus:border-brand-300 text-sm" required />
           )}
           <input type="password" placeholder="密码" value={password} onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-brand" required />
+            className="w-full px-4 py-3 rounded-lg bg-brand-50 border border-brand-100 focus:outline-none focus:border-brand-300 text-sm" required />
           <button type="submit" disabled={loading}
-            className="w-full py-3 bg-brand text-white rounded-xl font-medium hover:bg-brand-dark transition-colors disabled:opacity-50">
-            {loading ? "处理中..." : isRegister ? "注册" : "登录"}
+            className="w-full py-3 bg-brand text-white rounded-lg font-medium text-sm tracking-wider hover:bg-brand-dark transition-colors disabled:opacity-50">
+            {loading ? "..." : isRegister ? "注册" : "登录"}
           </button>
-          <p className="text-center text-sm text-gray-500">
+          <p className="text-center text-xs text-brand-400">
             {isRegister ? "已有账号？" : "没有账号？"}
-            <button type="button" onClick={() => setIsRegister(!isRegister)} className="text-brand ml-1">
+            <button type="button" onClick={() => setIsRegister(!isRegister)} className="text-brand ml-1 underline underline-offset-2">
               {isRegister ? "登录" : "注册"}
             </button>
           </p>

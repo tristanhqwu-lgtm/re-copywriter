@@ -1,15 +1,57 @@
+import os
+
 import google.generativeai as genai
 
 from config import settings
 from services.utils import parse_llm_json
 
+# Ensure lowercase proxy env vars are set for gRPC compatibility
+for _upper, _lower in [("HTTP_PROXY", "http_proxy"), ("HTTPS_PROXY", "https_proxy")]:
+    if os.environ.get(_upper) and not os.environ.get(_lower):
+        os.environ[_lower] = os.environ[_upper]
+
 genai.configure(api_key=settings.GEMINI_API_KEY)
 model = genai.GenerativeModel(
     model_name=settings.GEMINI_MODEL,
-    system_instruction="你是一位顶尖的小红书/社交媒体香水文案写手，为「RE调香室」品牌服务。你的文案既能精准传达香水的嗅觉体验，又能打动读者的情感。你熟悉小红书的内容生态，懂得如何创作高互动的种草内容。",
+    system_instruction="你是一位顶尖的社交媒体香水文案写手，为「RE调香室」品牌服务。你的文案既能精准传达香水的嗅觉体验，又能打动读者的情感。你熟悉各社交媒体平台的内容生态，懂得如何创作高互动的种草内容。",
 )
 
-GENERATE_PROMPT = """请按照以下要求创作{count}个版本的小红书香水文案。
+SYSTEM_INSTRUCTION = "你是一位顶尖的社交媒体香水文案写手，为「RE调香室」品牌服务。你的文案既能精准传达香水的嗅觉体验，又能打动读者的情感。你熟悉各社交媒体平台的内容生态，懂得如何创作高互动的种草内容。"
+
+PLATFORM_CONFIGS = {
+    "xiaohongshu": {
+        "label": "小红书",
+        "content_length": "300-500字",
+        "title_length": "15-25字",
+        "hint": "适合种草笔记，图文并茂，情感丰富，善用emoji和段落分隔",
+    },
+    "wechat_moments": {
+        "label": "微信朋友圈",
+        "content_length": "50-150字",
+        "title_length": "10-15字",
+        "hint": "简短精炼，像朋友间的分享，口语化，一两段即可，不宜过长",
+    },
+    "douyin": {
+        "label": "抖音短文案",
+        "content_length": "100-200字",
+        "title_length": "10-20字",
+        "hint": "节奏感强，适合短视频配文，吸引眼球，带话题标签引流",
+    },
+    "video_script": {
+        "label": "视频脚本",
+        "content_length": "500-800字",
+        "title_length": "15-25字",
+        "hint": "分镜头/段落结构，包含开场hook、产品展示、使用感受、总结推荐，适合口播或vlog",
+    },
+}
+
+GENERATE_PROMPT = """请按照以下要求创作{count}个版本的{platform_label}香水文案。
+
+## 平台要求
+- 目标平台：{platform_label}
+- 正文长度：{content_length}
+- 标题长度：{title_length}
+- 平台特点：{platform_hint}
 
 ## 写作风格要求
 {style_section}
@@ -29,8 +71,8 @@ GENERATE_PROMPT = """请按照以下要求创作{count}个版本的小红书香�
 请为每个版本输出以下内容，严格按照JSON数组格式：
 [
   {{
-    "title": "文案标题（15-25字，必须含emoji，要吸引眼球）",
-    "content": "文案正文（300-500字，严格遵循上述风格要求，段落之间用\\n\\n分隔）",
+    "title": "文案标题（{title_length}，必须含emoji，要吸引眼球）",
+    "content": "文案正文（{content_length}，严格遵循上述风格要求，段落之间用\\n\\n分隔）",
     "hashtags": ["#话题标签1", "#话题标签2", "...（5-8个）"]
   }}
 ]
@@ -106,7 +148,10 @@ def generate_copies(
     style_features, sample_texts, product_name, top_notes, middle_notes,
     base_notes, price, spec, brand_story, scene_name="", scene_desc="",
     scene_keywords=None, scene_prompt_hint="", count=1,
+    platform="xiaohongshu", model_choice="gemini",
 ):
+    platform_cfg = PLATFORM_CONFIGS.get(platform, PLATFORM_CONFIGS["xiaohongshu"])
+
     style_section = build_style_section(style_features, sample_texts)
     scene_section = build_scene_section(
         scene_name, scene_desc, scene_keywords or [], scene_prompt_hint
@@ -117,18 +162,44 @@ def generate_copies(
         base_notes=base_notes or "未指定", price=f"¥{price}" if price else "未指定",
         spec=spec or "未指定", brand_story=brand_story or "暂无",
         scene_section=scene_section,
+        platform_label=platform_cfg["label"],
+        content_length=platform_cfg["content_length"],
+        title_length=platform_cfg["title_length"],
+        platform_hint=platform_cfg["hint"],
     )
-    response = model.generate_content(prompt)
-    copies = parse_llm_json(response.text)
+
+    if model_choice == "kimi":
+        from services.kimi_client import kimi_chat
+        text = kimi_chat(user_prompt=prompt, system_prompt=SYSTEM_INSTRUCTION)
+        copies = parse_llm_json(text)
+    elif model_choice == "deepseek":
+        from services.deepseek_client import deepseek_chat
+        text = deepseek_chat(user_prompt=prompt, system_prompt=SYSTEM_INSTRUCTION)
+        copies = parse_llm_json(text)
+    else:
+        response = model.generate_content(prompt, request_options={"timeout": 60})
+        copies = parse_llm_json(response.text)
+
     if isinstance(copies, dict):
         copies = [copies]
     return copies
 
 
-def refine_copy(original_title, original_content, feedback):
+def refine_copy(original_title, original_content, feedback, model_choice="gemini"):
     prompt = REFINE_PROMPT.format(
         original_title=original_title, original_content=original_content,
         feedback=feedback,
     )
-    response = model.generate_content(prompt)
+
+    if model_choice == "kimi":
+        from services.kimi_client import kimi_chat
+        text = kimi_chat(user_prompt=prompt, system_prompt=SYSTEM_INSTRUCTION)
+        return parse_llm_json(text)
+
+    if model_choice == "deepseek":
+        from services.deepseek_client import deepseek_chat
+        text = deepseek_chat(user_prompt=prompt, system_prompt=SYSTEM_INSTRUCTION)
+        return parse_llm_json(text)
+
+    response = model.generate_content(prompt, request_options={"timeout": 60})
     return parse_llm_json(response.text)
